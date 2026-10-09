@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+labs-updater = { version = "0.1.0", path = "../labs-updater" }
 photocraft-geom = { workspace = true }
 photocraft-color = { workspace = true }
 photocraft-cms = { workspace = true }

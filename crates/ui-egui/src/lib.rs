@@ -844,6 +844,8 @@ impl PhotocraftApp {
 
 impl eframe::App for PhotocraftApp {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Proddyt Switch: asks to update from the fork's releases (LABS-156).
+        labs_updater::frame(ctx, "photo-labs", "Photo Labs");
         i18n::set_current(i18n::Lang::from_pref(&self.session.prefs().interface.language));
         if !self.styled {
             Self::setup_context(ctx, self.ui.theme);
