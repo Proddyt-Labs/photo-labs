@@ -1,5 +1,7 @@
 # Context-menu inventory and parity contract
 
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** trivial (status line added; the inventory is the 2026-10-06 branch-point snapshot, current status lives in context-menu-parity.md) · **Target:** Adobe Photoshop 2026
+
 This is the source-code inventory of PhotoCraft's right-click behavior at the branch point, captured 2026-10-06. It distinguishes a menu from another secondary-button gesture. The initial selection, Paths row, and document-tab menus added by this PR are called out separately. Photoshop comparison should be checked against an identified Photoshop version and platform before claiming exact parity; the current Layers menu explicitly targets Photoshop 2026 order.
 
 ## Canvas: every tool
@@ -12,14 +14,14 @@ The shared rule is **Command/Ctrl + right-click** on opaque document pixels → 
 | Brush, Pencil, Eraser, Background Eraser | Brush Preset picker (size, hardness, presets) | Alt/Option + right-drag changes size/hardness via `tools.setBrush`; Brush/Eraser can right-drag erase via `tools.rightClickWithPaintingTools=erase` | Verify whether context should expose brush presets, settings, or tool-specific eraser controls. Keep erase preference and modifier priority deterministic. |
 | Spot Healing, Healing, Clone Stamp, History Brush, Blur, Sharpen, Smudge, Dodge, Burn, Sponge | Brush Preset picker | Alt/Option + right-drag changes size/hardness | Compare each tool's Photoshop picker and source/retouch options; use existing brush command route. |
 | Quick Selection | Brush Preset picker | Alt/Option + right-drag changes size/hardness | Check selection-tool brush options and whether mode controls belong in picker. |
-| Rectangular/Elliptical Marquee, Lasso, Polygonal Lasso, Magic Wand, Object Selection | No plain secondary action at branch point; this PR adds selection context actions | Command/Ctrl opens layer list | Reuse Select command IDs with exact enablement; compare menu placement and order with a current Photoshop capture. |
+| Rectangular/Elliptical Marquee, Lasso, Polygonal Lasso, Magnetic Lasso, Magic Wand, Object Selection | Selection context menu: the full Photoshop list with a selection, Select All / Reselect / Color Range / Load Selection without (`canvas_tool_menu.rs`, rows in `docs/context-menu-parity.md`) | Command/Ctrl opens layer list | Confirm the no-selection variant against a dated Photoshop capture. |
 | Crop, Slice, Slice Select | No plain secondary action | Command/Ctrl opens layer list | Define crop/straighten commit and cancel, aspect/preset, slice selection/edit behavior separately. |
 | Eyedropper, Ruler, Note, Count | No plain secondary action | Command/Ctrl opens layer list | Check tool-specific sampling, measurement, annotation, and count menus. |
 | Gradient, Paint Bucket | No plain secondary action | Command/Ctrl opens layer list | Expose gradient preset and fill settings through commands if Photoshop's context UI provides them; avoid painting on right-click. |
 | Type | No plain secondary action | Command/Ctrl opens layer list | Test text edit versus non-edit context, spelling, type options, and selection behavior. |
 | Pen, Path Selection | No plain secondary action | Command/Ctrl opens layer list | High-priority path-point context contract: add/delete/convert point, close path, make selection, fill/stroke path, path operations when applicable. |
 | Rectangle, Ellipse Shape, Triangle, Polygon, Line, Custom Shape | No plain secondary action | Command/Ctrl opens layer list | Define shape versus path context, point edit, fill/stroke, and transform entries. |
-| Hand, Zoom | No plain secondary action | Command/Ctrl opens layer list | Verify Photoshop's zoom/fit/actual-size canvas menu and add corresponding view commands. |
+| Hand, Zoom | View menu: Zoom In, Zoom Out, Fit on Screen, Fill Screen, 100%, 200%, Print Size (`canvas_tool_menu.rs`, #3242) | Command/Ctrl opens layer list | Confirm the row order against a dated Photoshop capture. |
 
 Canvas invariant: secondary click must not accidentally start a paint stroke, commit a crop, or edit the document; every mutating menu action dispatches a command. Escape/outside click closes a popup. Existing `ui.pointer` supports a secondary button; UI tests should exercise both native and control-driven gestures.
 
@@ -50,3 +52,10 @@ Canvas invariant: secondary click must not accidentally start a paint stroke, co
 3. Prioritize shared canvas menus, then high-value tool-specific interactions (path, selection, type, crop/zoom), then panel and tab gaps. Reuse Layers/Channels implementations where their command contract already exists. Preserve the existing Move/layer pick, brush picker, erase preference, Alt/Option brush resize, and toolbar flyout gestures.
 4. Test each descriptor's item order and enablement, dispatch with expected params, empty/invalid states, modifiers, and action result. Add UI gesture tests for right-click opening, target selection, Escape/outside dismissal, and the absence of accidental edits. Validate native and web builds.
 5. Capture screenshots from the running app for representative tool groups and panel states, with test fixture documents rather than personal photos. A screenshot proves visible menu composition; command tests prove its behavior.
+
+## Revision history
+
+| Date | Change | Summary |
+|---|---|---|
+| 2026-10-10 | trivial | Status line, revision history; marked as the branch-point snapshot |
+| 2026-10-06 | major | Source inventory of right-click behaviour |

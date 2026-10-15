@@ -6,8 +6,11 @@
 //!     --script '[["ui.set", {"tool": "type"}], ["ui.menu.invoke", {"id": "image.imageSize"}]]'
 //! ```
 //!
+//! `--system-theme light|dark|none` supplies a deterministic OS appearance for theme captures.
+//!
 //! `--safe-gpu` draws the canvas on the CPU path, like the app's `--safe-gpu` launch.
 //! `--wayland-notice` previews the native file drag-and-drop guidance shown in Wayland sessions.
+//! `--custom-titlebar` draws the Windows/Linux title bar (caption buttons in the top bar).
 //!
 //! `--monitor 1366x768 --window-top 31` simulates the display the window is on (in points) and
 //! where its content starts on it, e.g. a window running under a Windows taskbar.
@@ -38,12 +41,19 @@ fn main() {
         arg(&args, "--script").map(|s| serde_json::from_str::<Vec<(String, Value)>>(&s).expect("--script must be [[method, params], …]")).unwrap_or_default();
 
     let services = Services {
-        import: Some(Box::new(|name: &str, bytes: &[u8]| photocraft_io::import(name, bytes).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string()))),
+        import: Some(Box::new(|name: &str, bytes: &[u8], depth: usize| {
+            photocraft_io::import_with_svg_group_depth(name, bytes, depth).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string())
+        })),
         export: Some(Box::new(|doc: &photocraft_doc::Document, path: &str, settings: &photocraft_ui_egui::ExportSettings| {
             let mut opts = photocraft_io::ExportOptions::default();
             if let Some(q) = settings.jpeg_quality {
                 opts.encode.jpeg_quality = q;
             }
+            opts.encode.webp_lossless = settings.webp_lossless;
+            if let Some(q) = settings.webp_quality {
+                opts.encode.webp_quality = q;
+            }
+            opts.tga_bits = settings.tga_bits;
             photocraft_io::export(doc, path, &opts).map(|r| (r.bytes, r.warnings)).map_err(|e| e.to_string())
         })),
         write: Some(Box::new(|path: &str, bytes: &[u8]| photocraft_format::atomic_write(std::path::Path::new(path), bytes).map_err(|e| e.to_string()))),
@@ -53,6 +63,7 @@ fn main() {
     let safe_gpu = args.iter().any(|a| a == "--safe-gpu");
     // `--background-jobs`: long commands run as background jobs, as in the desktop app (#210).
     let background_jobs = args.iter().any(|a| a == "--background-jobs");
+    let custom_titlebar = args.iter().any(|a| a == "--custom-titlebar");
     // `--settle-ms N`: keep rendering frames for N ms before the capture (e.g. mid-job).
     let settle_ms: u64 = arg(&args, "--settle-ms").and_then(|s| s.parse().ok()).unwrap_or(0);
     let mut harness =
@@ -60,8 +71,10 @@ fn main() {
             PhotocraftApp::setup_context(&cc.egui_ctx, Default::default());
             let mut services = services;
             services.is_wayland = wayland_notice;
+            services.xwayland_command = wayland_notice.then(|| "WAYLAND_DISPLAY= photocraft".into());
             let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), services);
             app.background_jobs = background_jobs;
+            app.custom_titlebar = custom_titlebar;
             // `--safe-gpu`: the CPU canvas, as the desktop app's `--safe-gpu` launch.
             if safe_gpu {
                 app.perf.gpu_info.selected = "cpu".into();
@@ -84,6 +97,17 @@ fn main() {
         v.monitor_size = Some(egui::vec2(mw, mh));
         v.inner_rect = Some(egui::Rect::from_min_size(egui::pos2(0.0, top), egui::vec2(w, h)));
         v.maximized = Some(false);
+    }
+    if let Some(appearance) = arg(&args, "--system-theme") {
+        harness.input_mut().system_theme = match appearance.as_str() {
+            "light" => Some(egui::Theme::Light),
+            "dark" => Some(egui::Theme::Dark),
+            "none" => None,
+            _ => {
+                eprintln!("--system-theme must be light, dark or none");
+                std::process::exit(2);
+            }
+        };
     }
     harness.run_steps(4);
     let ctx = harness.ctx.clone();
@@ -138,6 +162,10 @@ fn main() {
     if let Outcome::Done(v) = handle(harness.state_mut(), &ctx, &req) {
         println!("perf: {}", v["result"]["perf"]["timings"]);
     }
+    println!(
+        "language: {}",
+        serde_json::json!({"preference": harness.state().session.prefs().interface.language, "resolved": photocraft_ui_egui::i18n::current().code()})
+    );
     let img = harness.render().expect("render");
     img.save(&out).expect("save png");
     println!("wrote {out} ({}×{})", img.width(), img.height());
